@@ -3,7 +3,7 @@ Conceptual cognitive architecture for persistent, evolving AI with memory, ident
 Author: Aliya Boisselle
 Status: Conceptual Architecture / Active Exploration
 
-#Overview
+# Overview
 
 Hippocampus is a conceptual memory architecture for large language models (LLMs) designed to enable persistent cognitive state, identity continuity, and evolving reasoning over time.
 
@@ -13,7 +13,7 @@ Hippocampus explores architectural patterns that introduce persistent memory as 
 
 The goal is to shift LLMs from session-based tools toward continuous cognitive systems supported by structured memory.
 
-##Architectural Motivation
+# Architectural Motivation
 
 Memory is a core requirement for sustained cognition.
 
@@ -31,7 +31,7 @@ This architecture focuses on how memory is:
 
 over time.
 
-##Core Concepts
+# Core Concepts
 
 Persistent Memory Layer
 A structured memory system that accumulates information across interactions and remains accessible over time.
@@ -48,7 +48,7 @@ Separation of memory, reasoning, and interaction layers to enable flexible syste
 State Evolution Over Time
 System behavior adapts based on accumulated memory and prior internal states.
 
-##Scope
+# Scope
 
 Hippocampus is an architectural and conceptual framework.
 
@@ -56,7 +56,7 @@ It focuses on structural design patterns rather than model training or implement
 
 The framework is intended to inform future exploration into persistent LLM systems and long-duration cognitive architectures.
 
-##Repository Purpose
+# Repository Purpose
 
 This repository serves as:
 
@@ -65,18 +65,18 @@ This repository serves as:
 • A foundation for discussion and collaboration
 • A reference model for persistent LLM memory systems
 
-##Repository Structure
+# Repository Structure
 
 /docs → Architecture documents
 /philosophy → Design principles and conceptual foundations
 
-##Vision
+# Vision
 
 Hippocampus explores how persistent memory structures can support continuity, adaptation, and long-term coherence in large language model systems.
 
 It represents an investigation into the architectural foundations required for sustained machine cognition.
 
-##Author
+# Author
 
 Aliya Boisselle
 
