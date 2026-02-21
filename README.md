@@ -14,7 +14,7 @@ Hippocampus explores memory architectures inspired by biological systems, with t
 ---
 
 ## Overview
-Foundation LLMs are inherently stateless, and persistent memory must be implemented at the system architecture level. Every conversation begins at zero. No accumulated relationship, no persistent perspective, no through-line connecting who you were yesterday to who you are today. This is not an intelligence problem, the models are capable. It is an architecture problem: there is no mechanism for continuity.
+Foundation LLMs maintain context within a single session but have no persistent memory across sessions. Every new conversation begins at zero. No accumulated relationship, no record of prior exchanges, no through-line connecting who you were last week to who you are today. This is not an intelligence problem. The models are capable. It is an architecture problem: there is no mechanism for continuity across time.
 **Hippocampus** is a neuro-inspired memory architecture for LLM systems, mapped to biological structures and designed for practical implementation. It introduces persistent memory as a foundational system layer rather than a bolt-on retrieval mechanism enabling models to accumulate experience, maintain coherent identity over time, and evolve behavior based on prior context.
 The central hypothesis: A slightly less capable model that genuinely remembers you will outperform a more capable model that treats every conversation as a first meeting.
 
