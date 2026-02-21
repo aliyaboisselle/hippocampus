@@ -3,7 +3,7 @@ Conceptual cognitive architecture for persistent, evolving AI with memory, ident
 Author: Aliya Boisselle
 Status: Conceptual Architecture / Active Exploration
 
-##Overview
+#Overview
 
 Hippocampus is a conceptual memory architecture for large language models (LLMs) designed to enable persistent cognitive state, identity continuity, and evolving reasoning over time.
 
