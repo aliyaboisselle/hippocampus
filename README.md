@@ -76,7 +76,7 @@ This repository currently contains in progress architecture and interface design
 
 | Document | Status |
 |---|---|
-| Architecture Reference (v4.1) | 🔄 In development |
+| Architecture Reference (v1) | ✅ Complete |
 | Component Interface Specification (v1.0) | 🔄 In development |
 | Repository Structure & Setup Guide | 🔄 In development |
 | V1 Prototype Implementation | 🔄 In development |
@@ -98,7 +98,7 @@ hippocampus/
 ├── requirements.txt
 │
 ├── docs/
-│   ├── architecture_v1.docx         # Full architecture reference
+│   ├── Hippocampus_architecture_v1.docx   # Full architecture reference
 │   ├── interfaces_v1.docx           # Component interface specification
 │   ├── repository_guide.docx        # Setup and contribution guide
 │   ├── CHANGELOG.md
