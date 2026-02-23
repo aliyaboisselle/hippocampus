@@ -26,7 +26,7 @@ Most memory approaches for LLMs fall into two categories: **simple note-taking**
 
 Hippocampus takes a different approach, inspired by principles observed in biological memory:
 
--**Episodic and semantic memory as distinct stores.** Raw experience (episodic) is append-only and immutable. The permanent ground truth of what happened. Derived beliefs (semantic) are mutable and updated by reconsolidation as new experience arrives. Every semantic memory carries a traceable link back to the episodes that produced it. This distinction is structural, not procedural: the data model enforces it, not a verification step that could be bypassed.
+- **Episodic and semantic memory as distinct stores.** Raw experience (episodic) is append-only and immutable. The permanent ground truth of what happened. Derived beliefs (semantic) are mutable and updated by reconsolidation as new experience arrives. Every semantic memory carries a traceable link back to the episodes that produced it. This distinction is structural, not procedural: the data model enforces it, not a verification step that could be bypassed.
 
 - **Reconsolidation, not archiving.** Every semantic memory retrieval triggers re-summarization in current context, producing denser and more relevant memories over time. Memory quality improves with use rather than simply being preserved.
 
@@ -35,7 +35,7 @@ Hippocampus takes a different approach, inspired by principles observed in biolo
 - **Temperature-scaled judgment (Kant).** A dedicated adjudication layer routes between novelty encoding and contradiction surfacing, outputting a weight vector rather than a binary decision. Errors self-correct through reconsolidation rather than compounding permanently.
 
 - **Two-mode cognitive guardrail (Socrates).** Mode 1 surfaces self-contradictions from the user's own prior statements across sessions. Mode 2 provides firm correction when a persistent belief conflicts with established knowledge AND harm potential is present and refuses memory encoding. Both modes are included as core architectural safeguards.
-- 
+
 - **Hard memory refusal.** The architecture has a defined set of immutable categories: harm, illegal activity, health advice, crisis signals, and others where memory encoding is blocked by design. A configurable operator layer sits above this floor but cannot weaken it.
 
 - **Portable, model-agnostic storage.** Memories are stored as structured text summaries, not raw vector embeddings. This makes them portable across model upgrades, readable by humans, and improves handling of migration when the underlying model changes.
