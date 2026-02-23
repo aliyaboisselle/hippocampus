@@ -16,16 +16,19 @@ Hippocampus explores memory architectures inspired by biological systems, with t
 ## Overview
 Foundation LLMs maintain context within a single session but have no persistent memory across sessions. Every new conversation begins at zero. No accumulated relationship, no record of prior exchanges, no through-line connecting who you were last week to who you are today. This is not an intelligence problem. The models are capable. It is an architecture problem: there is no mechanism for continuity across time.
 **Hippocampus** is a neuro-inspired memory architecture for LLM systems, mapped to biological structures and designed for practical implementation. It introduces persistent memory as a foundational system layer rather than a bolt-on retrieval mechanism enabling models to accumulate experience, maintain coherent identity over time, and evolve behavior based on prior context.
-The central hypothesis: A slightly less capable model that genuinely remembers you will outperform a more capable model that treats every conversation as a first meeting.
+
+**The central hypothesis:** A slightly less capable model that remembers you will outperform a more capable model that treats every conversation as a first meeting.
 
 ---
 
 ## What Makes This Different
-Most memory approaches for LLMs fall into two categories: **simple note-taking** (storing explicit facts in a profile — brittle, doesn't capture how someone thinks) or **long-context windows** (expensive, treats all context as equally weighted, doesn't scale across sessions).
+Most memory approaches for LLMs fall into two categories: **simple note-taking** (storing explicit facts in a profile which is brittle and doesn't capture how someone thinks) or **long-context windows** (expensive, treats all context as equally weighted, doesn't scale across sessions).
 
 Hippocampus takes a different approach, inspired by principles observed in biological memory:
 
-- **Reconsolidation, not archiving.** Every memory retrieval triggers re-summarization in current context, producing denser and more relevant memories over time. Memory quality improves with use rather than simply being preserved.
+-**Episodic and semantic memory as distinct stores.** Raw experience (episodic) is append-only and immutable. The permanent ground truth of what happened. Derived beliefs (semantic) are mutable and updated by reconsolidation as new experience arrives. Every semantic memory carries a traceable link back to the episodes that produced it. This distinction is structural, not procedural: the data model enforces it, not a verification step that could be bypassed.
+
+- **Reconsolidation, not archiving.** Every semantic memory retrieval triggers re-summarization in current context, producing denser and more relevant memories over time. Memory quality improves with use rather than simply being preserved.
 
 - **Novelty-weighted encoding (Merzenich).** Memories are weighted by significance, not just frequency. A conversation that changes how you think about something gets elevated weight and paradigm shifts survive even without frequent retrieval. Routine noise does not persist simply by repetition.
 
@@ -47,7 +50,8 @@ Hippocampus takes a different approach, inspired by principles observed in biolo
 | Agentic Orchestration | Spinal cord | Tool calls, workflows, coordination |
 | Perception Layer | Prefrontal monitoring | Memory/fact ratio auditing. Helps prevent confirmation drift. |
 | Base LLM | Cerebellum | Frozen procedural knowledge. Factual anchor. |
-| User Memory Store | Hippocampus | Per-user episodic memory as text summaries. Reconsolidation on every recall. |
+| Episodic Store | Hippocampus — episodic | Per-user raw experience as text summaries. Append-only. Immutable after write. Ground truth. |
+| Semantic Store | Hippocampus — semantic | Derived beliefs, updated by reconsolidation. Always traceable to source episodes. |
 | Merzenich | Cortical remapping | Novelty weighting at encoding. Dual baseline: LLM (human generally) + personal hippocampus (this user). |
 | Two-Pass Retrieval | Frontal lobe | Pre-reasoning retrieval + post-reasoning re-rank |
 | Kant | Reflective judgment | Temperature-scaled routing. Weight vector output, not binary. |
@@ -59,15 +63,15 @@ Hippocampus takes a different approach, inspired by principles observed in biolo
 
 ## Memory Lifecycle
 
-Memory exists in five explicit states with defined transitions:
-```
-Raw Input → Encoded Axon → Active Memory → Reconsolidation → Pruned
-```
+Memory flows across two stores with defined transitions:
 
-- **Encoding** is triggered at session end or significance threshold. Kant and Merzenich modulate initial axon weight before the write completes. Memory refusal blocks the write entirely if an ethical imperative threshold is met.
-- **Reconsolidation** runs on every retrieval in v1. Dual drift verification (embedding similarity + low-temperature LLM comparison) catches both surface and semantic drift. These methods fail in complementary ways — requiring both to agree gives substantially stronger fidelity signal than either alone.
-- **Decay occurs over time.** Users control the deprecation rate, not specific content. Content-selective deprecation would enable intentional removal of inconvenient memories.
-- **High-Merzenich axons** decay more slowly regardless of deprecation settings. Significance is partially protected from the passage of time.
+**Encoding** — At session end, the session is compressed into one or more `EpisodicMemory` records by the Session Manager via LLM summarization. Episodes are written to EpisodicStore. Memory Refusal Gate runs before every write and blocks the write entirely if a hardcoded floor category is matched. Kant and Merzenich modulate initial weight before the write completes.
+
+**Reconsolidation** — Every semantic memory retrieval triggers reconsolidation in v1. The retrieved `SemanticMemory` is re-summarized in current context via LLM call. Dual drift verification runs: embedding similarity (surface drift) + low-temperature LLM comparison (semantic drift). These methods fail in complementary ways requiring both to agree gives substantially stronger fidelity signal than either alone. On passing verification, SemanticStore is updated. EpisodicStore is never touched during reconsolidation.
+
+**Decay** — Semantic memory weight decays over time. Users control the deprecation rate, not specific content. Content-selective deprecation would enable intentional removal of inconvenient memories, turning the system into a confirmation bias engine. High-Merzenich semantic memories decay more slowly regardless of deprecation settings — significance is partially protected from the passage of time.
+
+**Pruning** — Semantic memories whose weight falls below the pruning threshold are removed from the active store. Episodic memories are append-only and are not pruned; they may be archived.
 
 ---
 
@@ -76,13 +80,15 @@ This repository currently contains in progress architecture and interface design
 
 | Document | Status |
 |---|---|
-| Architecture Reference (v4.1) | 🔄 In development |
-| Component Interface Specification (v1.0) | 🔄 In development |
+| Architecture Reference (v1) | 🔄 In development |
+| Component Interface Specification (v1.1) | 🔄 In development |
+| Design Principles (v1.0) | 🔄 In development |
+| Architecture Decision Records (ADR-001 – ADR-004) | 🔄 In development |
 | Repository Structure & Setup Guide | 🔄 In development |
 | V1 Prototype Implementation | 🔄 In development |
 | V2 Components (Kant, Merzenich, Perception Layer) | 📋 Specified, not yet implemented |
 
-The V1 prototype will target three core components: the Memory Store (Hippocampus), the Reconsolidation Engine, and Socrates Mode 1. These components represent the core experimental mechanisms of the architecture and the safety guardrail required for responsible deployment.
+The V1 prototype targets the core memory components: EpisodicStore, SemanticStore, Reconsolidation Engine, Memory Refusal Gate, Socrates, Session Manager, Retrieval Engine (Pass 1), and LLM Connector.
 
 --- 
 
@@ -98,25 +104,31 @@ hippocampus/
 ├── requirements.txt
 │
 ├── docs/
-│   ├── architecture_v1.docx         # Full architecture reference
-│   ├── interfaces_v1.docx           # Component interface specification
-│   ├── repository_guide.docx        # Setup and contribution guide
+│   ├── architecture_v1.docx          # Full architecture reference
+│   ├── interfaces_v1.docx            # Component interface specification
+│   ├── design_principles_v1.docx     # Non-negotiable constraints for contributors
+│   ├── repository_guide.docx         # Setup and contribution guide
 │   ├── CHANGELOG.md
-│   └── decisions/                   # Architecture Decision Records
+│   └── decisions/                    # Architecture Decision Records
+│       ├── ADR-001-text-summaries.md
+│       ├── ADR-002-local-embeddings.md
+│       ├── ADR-003-apache-license.md
+│       └── ADR-004-episodic-semantic-split.md
 │
 ├── src/
-│   ├── memory_store.py              # Hippocampus — V1 core
-│   ├── reconsolidation.py           # Reconsolidation Engine — V1 core
-│   ├── refusal_gate.py              # Memory Refusal Gate — V1 core
-│   ├── retrieval.py                 # Retrieval Engine — V1 Pass 1
-│   ├── socrates.py                  # Socrates Mode 1 — V1 core
-│   ├── session_manager.py           # Session orchestration
-│   ├── llm_connector.py             # Anthropic API wrapper
-│   └── stubs/                       # V2 interface stubs
+│   ├── episodic_store.py             # EpisodicStore — V1 core, append-only
+│   ├── semantic_store.py             # SemanticStore — V1 core, derived beliefs
+│   ├── reconsolidation.py            # Reconsolidation Engine — V1 core
+│   ├── refusal_gate.py               # Memory Refusal Gate — V1 core
+│   ├── retrieval.py                  # Retrieval Engine — V1 Pass 1
+│   ├── socrates.py                   # Socrates Mode 1 — V1 core
+│   ├── session_manager.py            # Session orchestration
+│   ├── llm_connector.py              # Anthropic API wrapper
+│   └── stubs/                        # V2 interface stubs
 │
 ├── config/
 │   ├── default.json
-│   └── refusal_rules.json           # Operator-configurable refusal layer
+│   └── refusal_rules.json            # Operator-configurable refusal layer
 │
 └── tests/
 ```
@@ -126,11 +138,15 @@ hippocampus/
 
 A few non-obvious choices are documented explicitly:
 
-**Text summaries over vector embeddings** — Embeddings are model-specific. When the underlying LLM is updated, embeddings from the old model may not map cleanly to the new model's semantic space, corrupting years of accumulated memory. Text summaries are model-agnostic, re-embedded at retrieval time by whatever model is current, and readable by humans. This also allows for interoperability, keeping ahead of likely future policy for user memory. Portability and upgrade resilience in a single decision.
+**Episodic and semantic memory as separate stores** — The original design used a single mutable memory unit for both raw experience and derived belief. This was replaced with a structural split: EpisodicStore is append-only (no update or delete path exists), SemanticStore is mutable and always carries a `derived_from` list linking back to source episodes. The split enforces the integrity guarantee structurally rather than relying on the reconsolidation engine to maintain it procedurally. A bug in reconsolidation can no longer corrupt the historical record. See ADR-004.
 
-**Local embeddings (sentence-transformers) for prototype** — Free, runs entirely offline after first model download (~90MB), and keeps memory data local. No API calls, no cost per embedding, no third-party dependency for a core privacy-sensitive operation.
+**Text summaries over vector embeddings** — Embeddings are model-specific. When the underlying LLM is updated, embeddings from the old model may not map cleanly to the new model's semantic space, corrupting years of accumulated memory. Text summaries are model-agnostic, re-embedded at retrieval time by whatever model is current, and readable by humans. Portability and upgrade resilience in a single decision. See ADR-001.
+
+**Local embeddings (sentence-transformers) for prototype** — Free, runs entirely offline after first model download (~90MB), and keeps memory data local. No API calls, no cost per embedding, no third-party dependency for a core privacy-sensitive operation. See ADR-002
 
 **Every retrieval triggers reconsolidation in V1** — Simpler, predictable, and testable for a single-user prototype. A production system would trigger only when retrieval context diverges significantly from last-verified context. This tradeoff is documented explicitly in the architecture.
+
+**User-controlled deprecation rate, not content** — Users can set how quickly their semantic memories decay but cannot selectively remove specific memories. Content-selective deprecation would allow a user to surgically remove inconvenient truths, turning the system into a confirmation bias engine. Rate control gives meaningful privacy agency without enabling that failure mode.
 
 ---
 
@@ -159,8 +175,10 @@ To be completed once prototype is available.
 ## Documentation
 | Document | Description |
 |---|---|
-| `docs/architecture_v1.docx` | Full architecture reference. Biological foundation, twelve-layer system, memory lifecycle, refusal framework, open problems. |
+| `docs/architecture_v1.docx` | Full architecture reference. Biological foundation, twelve-layer system, memory lifecycle, open problems. |
 | `docs/interfaces_v1.docx` | Component interface specification. Method signatures, types, configuration. The bridge between architecture and code. |
+| `docs/design_principles_v1.docx` | Non-negotiable constraints for contributors. Read before implementing a component or opening a PR that touches core architecture. |
+| `docs/decisions/` | Architecture Decision Records. Full reasoning behind each significant design choice. |
 | `docs/repository_guide.docx` | Setup instructions, repository structure, contributing guide, ADR templates, end-to-end walkthrough. |
 
 ---
