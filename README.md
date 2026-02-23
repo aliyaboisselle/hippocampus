@@ -30,6 +30,10 @@ Hippocampus takes a different approach, inspired by principles observed in biolo
 
 - **Reconsolidation, not archiving.** Every semantic memory retrieval triggers re-summarization in current context, producing denser and more relevant memories over time. Memory quality improves with use rather than simply being preserved.
 
+- **Retrieval is read-only. Reconsolidation is a background job. These are never mixed.** The Retrieval Engine queries SemanticStore and returns results. It does not trigger reconsolidation. The ReconsolidationScheduler runs asynchronously on a configurable interval and on confidence-triggered events at session close. This separation is an architectural invariant. Implementing it any other way will cause latency, race conditions, and corruption.
+
+- **Session-scoped working memory.** A WorkingMemory layer sits between the Session Manager and the long-term stores, holding facts, goals, and active entities relevant to the current session. It is cleared at session end after the Session Manager decides what to encode as episodes. It is not a cache of SemanticStore; it is a scratchpad for context that hasn't been evaluated for long-term encoding yet.
+  
 - **Novelty-weighted encoding (Merzenich).** Memories are weighted by significance, not just frequency. A conversation that changes how you think about something gets elevated weight and paradigm shifts survive even without frequent retrieval. Routine noise does not persist simply by repetition.
 
 - **Temperature-scaled judgment (Kant).** A dedicated adjudication layer routes between novelty encoding and contradiction surfacing, outputting a weight vector rather than a binary decision. Errors self-correct through reconsolidation rather than compounding permanently.
@@ -52,6 +56,8 @@ Hippocampus takes a different approach, inspired by principles observed in biolo
 | Base LLM | Cerebellum | Frozen procedural knowledge. Factual anchor. |
 | Episodic Store | Hippocampus — episodic | Per-user raw experience as text summaries. Append-only. Immutable after write. Ground truth. |
 | Semantic Store | Hippocampus — semantic | Derived beliefs, updated by reconsolidation. Always traceable to source episodes. |
+| WorkingMemory | Prefrontal working memory | Session-scoped facts, goals, active entities. Ephemeral — cleared at session end. |
+| ReconsolidationScheduler | Sleep-phase consolidation | Background async job. Scheduled + confidence-triggered. Never runs during retrieval. |
 | Merzenich | Cortical remapping | Novelty weighting at encoding. Dual baseline: LLM (human generally) + personal hippocampus (this user). |
 | Two-Pass Retrieval | Frontal lobe | Pre-reasoning retrieval + post-reasoning re-rank |
 | Kant | Reflective judgment | Temperature-scaled routing. Weight vector output, not binary. |
@@ -65,13 +71,13 @@ Hippocampus takes a different approach, inspired by principles observed in biolo
 
 Memory flows across two stores with defined transitions:
 
-**Encoding** — At session end, the session is compressed into one or more `EpisodicMemory` records by the Session Manager via LLM summarization. Episodes are written to EpisodicStore. Memory Refusal Gate runs before every write and blocks the write entirely if a hardcoded floor category is matched. Kant and Merzenich modulate initial weight before the write completes.
+**Encoding** — At session end, the Session Manager writes one or more EpisodicMemory records to EpisodicStore via `EpisodicStore.write()`. Each record stores the raw conversation turns as primary ground truth, plus an LLM-derived summary. Memory Refusal Gate runs before every write. WorkingMemory's encodable facts may trigger additional episode writes.
 
-**Reconsolidation** — Every semantic memory retrieval triggers reconsolidation in v1. The retrieved `SemanticMemory` is re-summarized in current context via LLM call. Dual drift verification runs: embedding similarity (surface drift) + low-temperature LLM comparison (semantic drift). These methods fail in complementary ways requiring both to agree gives substantially stronger fidelity signal than either alone. On passing verification, SemanticStore is updated. EpisodicStore is never touched during reconsolidation.
+**Reconsolidation** — The ReconsolidationScheduler runs as a background async job, triggered by a scheduled interval (default: 4 hours per user) or by a confidence delta exceeding threshold when a new episode is encoded. It calls the Reconsolidation Engine, which re-summarises beliefs from source episodes in current context. Dual drift verification runs: embedding similarity (surface drift) + low-temperature LLM comparison (semantic drift). On passing verification, SemanticStore is updated. EpisodicStore is never touched. Retrieval never triggers reconsolidation.
 
 **Decay** — Semantic memory weight decays over time. Users control the deprecation rate, not specific content. Content-selective deprecation would enable intentional removal of inconvenient memories, turning the system into a confirmation bias engine. High-Merzenich semantic memories decay more slowly regardless of deprecation settings — significance is partially protected from the passage of time.
 
-**Pruning** — Semantic memories whose weight falls below the pruning threshold are removed from the active store. Episodic memories are append-only and are not pruned; they may be archived.
+**Pruning** — Semantic memories whose weight falls below the pruning threshold are removed from the active store. Episodic memories are append-only and are not pruned; they are archived to warm and cold storage tiers as they age (hot: < 90 days, warm: 90 days – 2 years, cold: 2+ years). Raw turns are preserved in all tiers.
 
 ---
 
@@ -80,15 +86,16 @@ This repository currently contains in progress architecture and interface design
 
 | Document | Status |
 |---|---|
-| Architecture Reference (v1) | 🔄 In development |
+| Architecture Reference (v1.1) | 🔄 In development |
 | Component Interface Specification (v1.1) | 🔄 In development |
-| Design Principles (v1.0) | 🔄 In development |
+| Design Principles (v1.1) | 🔄 In development |
 | Architecture Decision Records (ADR-001 – ADR-004) | 🔄 In development |
 | Repository Structure & Setup Guide | 🔄 In development |
 | V1 Prototype Implementation | 🔄 In development |
 | V2 Components (Kant, Merzenich, Perception Layer) | 📋 Specified, not yet implemented |
 
-The V1 prototype targets the core memory components: EpisodicStore, SemanticStore, Reconsolidation Engine, Memory Refusal Gate, Socrates, Session Manager, Retrieval Engine (Pass 1), and LLM Connector.
+The V1 prototype targets the core memory components: EpisodicStore, SemanticStore, WorkingMemory, ReconsolidationScheduler, Reconsolidation Engine, Memory Refusal Gate, Socrates, Session Manager, Retrieval Engine (Pass 1), and LLM Connector.
+
 
 --- 
 
@@ -100,39 +107,57 @@ Repository in progress - not all files created or available yet.
 hippocampus/
 ├── README.md
 ├── LICENSE
-├── .env.example
+├── .env.example               # Required — see Security section
 ├── requirements.txt
 │
 ├── docs/
-│   ├── architecture_v1.docx          # Full architecture reference
-│   ├── interfaces_v1.docx            # Component interface specification
-│   ├── design_principles_v1.docx     # Non-negotiable constraints for contributors
-│   ├── repository_guide.docx         # Setup and contribution guide
+│   ├── architecture_v4_1.docx          # Full architecture reference
+│   ├── interfaces_v1_2.docx            # Component interface specification
+│   ├── design_principles_v1.docx       # Non-negotiable constraints for contributors
+│   ├── repository_guide.docx           # Setup and contribution guide
 │   ├── CHANGELOG.md
-│   └── decisions/                    # Architecture Decision Records
+│   └── decisions/                      # Architecture Decision Records
 │       ├── ADR-001-text-summaries.md
 │       ├── ADR-002-local-embeddings.md
 │       ├── ADR-003-apache-license.md
 │       └── ADR-004-episodic-semantic-split.md
 │
 ├── src/
-│   ├── episodic_store.py             # EpisodicStore — V1 core, append-only
-│   ├── semantic_store.py             # SemanticStore — V1 core, derived beliefs
-│   ├── reconsolidation.py            # Reconsolidation Engine — V1 core
-│   ├── refusal_gate.py               # Memory Refusal Gate — V1 core
-│   ├── retrieval.py                  # Retrieval Engine — V1 Pass 1
-│   ├── socrates.py                   # Socrates Mode 1 — V1 core
-│   ├── session_manager.py            # Session orchestration
-│   ├── llm_connector.py              # Anthropic API wrapper
-│   └── stubs/                        # V2 interface stubs
+│   ├── episodic_store.py               # EpisodicStore — V1 core, append-only
+│   ├── semantic_store.py               # SemanticStore — V1 core, derived beliefs
+│   ├── working_memory.py               # WorkingMemory — V1 core, session-scoped
+│   ├── reconsolidation_scheduler.py    # ReconsolidationScheduler — V1 core, background
+│   ├── reconsolidation.py              # Reconsolidation Engine — V1 core
+│   ├── refusal_gate.py                 # Memory Refusal Gate — V1 core
+│   ├── retrieval.py                    # Retrieval Engine — V1 Pass 1, read-only
+│   ├── socrates.py                     # Socrates Mode 1 — V1 core
+│   ├── session_manager.py              # Session orchestration
+│   ├── llm_connector.py                # Anthropic API wrapper
+│   ├── storage_backend.py              # StorageBackend abstraction
+│   └── stubs/                          # V2 interface stubs
+│
+├── memory/
+│   ├── episodic/                       # EpisodicStore data directory
+│   └── semantic/                       # SemanticStore data directory
 │
 ├── config/
 │   ├── default.json
-│   └── refusal_rules.json            # Operator-configurable refusal layer
+│   └── refusal_rules.json              # Operator-configurable refusal layer
 │
 └── tests/
 ```
 ---
+
+## Security
+
+The Anthropic API key must be loaded from an environment variable. It must never be hardcoded in source code or committed to version control.
+
+```bash
+cp .env.example .env
+# Add your key to .env — never commit this file
+```
+
+`.env.example` shows the expected variable name without a value. `.env` is gitignored.
 
 ## Key Design Decisions
 
@@ -141,6 +166,10 @@ A few non-obvious choices are documented explicitly:
 **Episodic and semantic memory as separate stores** — The original design used a single mutable memory unit for both raw experience and derived belief. This was replaced with a structural split: EpisodicStore is append-only (no update or delete path exists), SemanticStore is mutable and always carries a `derived_from` list linking back to source episodes. The split enforces the integrity guarantee structurally rather than relying on the reconsolidation engine to maintain it procedurally. A bug in reconsolidation can no longer corrupt the historical record. See ADR-004.
 
 **Text summaries over vector embeddings** — Embeddings are model-specific. When the underlying LLM is updated, embeddings from the old model may not map cleanly to the new model's semantic space, corrupting years of accumulated memory. Text summaries are model-agnostic, re-embedded at retrieval time by whatever model is current, and readable by humans. Portability and upgrade resilience in a single decision. See ADR-001.
+
+**Retrieval is strictly read-only** — The Retrieval Engine does not trigger reconsolidation. Mixing read and write paths on the retrieval call caused latency, race conditions, and violated read/write separation. Reconsolidation is a background job run by ReconsolidationScheduler, decoupled entirely from the read path.
+
+**Optimistic locking on SemanticStore** — `SemanticStore.update()` requires the caller to supply the current `version` integer. If a concurrent reconsolidation job has already updated the belief, a `VersionConflictError` is raised and the caller retries. Silent overwrites are not possible.
 
 **Local embeddings (sentence-transformers) for prototype** — Free, runs entirely offline after first model download (~90MB), and keeps memory data local. No API calls, no cost per embedding, no third-party dependency for a core privacy-sensitive operation. See ADR-002
 
@@ -188,7 +217,7 @@ This architecture is honest about what it does not yet know:
 
 - **Kant's internal implementation** is specified conceptually but requires an engineering decision on how three input signals combine into a weight vector before V2 implementation.
 - **Ethical imperative threshold categories** must be defined explicitly by humans before production deployment. The architecture specifies the structure; the categories require human judgment.
-- **Reconsolidation at scale** — every retrieval triggering reconsolidation is correct for V1 but requires a confidence-based trigger mechanism for production use.
+- **Source hash drift** — the rolling `source_hash` mechanism means the anchor advances with each reconsolidation cycle rather than staying pinned to original episodic content. Periodic re-anchoring against raw turns is a V2 target.
 - **Affect proxy depth** — current engagement signals (response length, follow-up rate) cannot distinguish curiosity from anxiety from confusion. De-scoped to V3.
 
 Full open problems documentation is in the architecture reference.
