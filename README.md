@@ -111,8 +111,8 @@ hippocampus/
 ├── requirements.txt
 │
 ├── docs/
-│   ├── architecture_v4_1.docx          # Full architecture reference
-│   ├── interfaces_v1_2.docx            # Component interface specification
+│   ├── architecture_v1_1.docx          # Full architecture reference
+│   ├── interfaces_v1_1.docx            # Component interface specification
 │   ├── design_principles_v1.docx       # Non-negotiable constraints for contributors
 │   ├── repository_guide.docx           # Setup and contribution guide
 │   ├── CHANGELOG.md
