@@ -86,7 +86,7 @@ This repository currently contains in progress architecture and interface design
 
 | Document | Status |
 |---|---|
-| Architecture Reference (v1.1) | 🔄 In development |
+| Architecture Reference (v1.1) | ✅ Completed |
 | Component Interface Specification (v1.1) | 🔄 In development |
 | Design Principles (v1.1) | 🔄 In development |
 | Architecture Decision Records (ADR-001 – ADR-004) | 🔄 In development |
